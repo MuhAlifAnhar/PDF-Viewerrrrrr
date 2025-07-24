@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" oncontextmenu="return false;">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PDF Dashboard - 10 Inline PDFs</title>
+
+    <!-- Select2 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        background: #f4f4f4;
+        font-family: Arial;
+        margin: 0;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      .dashboard {
+        padding: 20px;
+        text-align: center;
+      }
+
+      select,
+      button {
+        padding: 8px 12px;
+        margin: 10px;
+      }
+
+      canvas {
+        border: 1px solid #ccc;
+        margin: 10px auto;
+        display: block;
+      }
+
+      .watermark {
+        position: fixed;
+        top: 40%;
+        left: 30%;
+        font-size: 4rem;
+        opacity: 0.05;
+        color: red;
+        transform: rotate(-30deg);
+        z-index: 9999;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="watermark">BENGKEL MAHAPUTRA</div>
+
+    <div class="dashboard">
+      <label>Pilih File:</label>
+      <select id="fileSelect" style="width: 300px">
+        <option>Daihatsu Rocky</option>
+        <option>Toyota Raize Rev 1</option>
+        <option>File 3</option>
+        <option>File 4</option>
+        <option>File 5</option>
+        <option>File 6</option>
+        <option>File 7</option>
+        <option>File 8</option>
+        <option>File 9</option>
+        <option>File 10</option>
+      </select>
+
+      <div>
+        <button id="prev">Previous</button>
+        <span
+          >Page: <span id="page-num">1</span> /
+          <span id="page-count">1</span></span
+        >
+        <button id="next">Next</button>
+      </div>
+
+      <canvas id="pdf-canvas"></canvas>
+    </div>
+
+    <!-- jQuery & Select2 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- PDF.js logic -->
+    <script type="module">
+      import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.3.93/pdf.min.mjs";
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.3.93/pdf.worker.min.mjs";
+
+      const pdfFiles = {
+        "Daihatsu Rocky": "JVBERi0xLjQK1AAIG9iago8PC9U...",
+        "Toyota Raize Rev 1": "JVBERi0xLjQK3AAIG9iago8PC9U...",
+        "File 3": "JVBERi0xLjQK0IwIG9iago8PC9U...",
+        "File 4": "JVBERi0xLjQK4OwIG9iago8PC9U...",
+        "File 5": "JVBERi0xLjQK5ZwIG9iago8PC9U...",
+        "File 6": "JVBERi0xLjQK6AgIG9iago8PC9U...",
+        "File 7": "JVBERi0xLjQK7LkIG9iago8PC9U...",
+        "File 8": "JVBERi0xLjQK8LwIG9iago8PC9U...",
+        "File 9": "JVBERi0xLjQK9MgIG9iago8PC9U...",
+        "File 10": "JVBERi0xLjQK0AAIG9iago8PC9U...",
+      };
+
+      const canvas = document.getElementById("pdf-canvas");
+      const ctx = canvas.getContext("2d");
+
+      function loadPDF(base64) {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const pdfData = new Uint8Array(byteNumbers);
+
+        pdfjsLib.getDocument({ data: pdfData }).promise.then(function (pdfDoc) {
+          document.getElementById("page-count").textContent = pdfDoc.numPages;
+          renderPage(pdfDoc, 1);
+          setupControls(pdfDoc);
+        });
+      }
+
+      function renderPage(pdfDoc, num) {
+        pdfDoc.getPage(num).then(function (page) {
+          const viewport = page.getViewport({ scale: 1.5 });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport,
+          };
+          page.render(renderContext);
+          document.getElementById("page-num").textContent = num;
+          canvas.setAttribute("data-current-page", num);
+          canvas.setAttribute("data-total-pages", pdfDoc.numPages);
+        });
+      }
+
+      function setupControls(pdfDoc) {
+        document.getElementById("prev").onclick = function () {
+          let current = parseInt(canvas.getAttribute("data-current-page"));
+          if (current > 1) renderPage(pdfDoc, current - 1);
+        };
+        document.getElementById("next").onclick = function () {
+          let current = parseInt(canvas.getAttribute("data-current-page"));
+          let total = parseInt(canvas.getAttribute("data-total-pages"));
+          if (current < total) renderPage(pdfDoc, current + 1);
+        };
+      }
+
+      // Load default PDF
+      loadPDF(pdfFiles["Daihatsu Rocky"]);
+
+      // Ekspor ke global agar bisa dipanggil di luar module
+      window.loadPDF = loadPDF;
+      window.pdfFiles = pdfFiles;
+    </script>
+
+    <!-- Inisialisasi Select2 & Event Handler -->
+    <script>
+      $(document).ready(function () {
+        $("#fileSelect").select2({
+          placeholder: "Pilih File PDF",
+          allowClear: true,
+        });
+
+        $("#fileSelect").on("change", function () {
+          const selected = $(this).val();
+          const pdfData = window.pdfFiles[selected];
+          if (pdfData) {
+            window.loadPDF(pdfData);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
